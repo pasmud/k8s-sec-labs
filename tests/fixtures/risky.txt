@@ -1,0 +1,33 @@
+# Inert fixture: the entire file is a YAML string, not a Kubernetes object.
+|
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: fixture-only
+  spec:
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile: {type: RuntimeDefault}
+    containers:
+      - name: placeholder
+        securityContext:
+          privileged: true
+          allowPrivilegeEscalation: false
+          capabilities: {drop: [ALL]}
+  ---
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: Role
+  # Intentionally missing metadata.name.
+  metadata: {}
+  rules:
+    - apiGroups: ['']
+      resources: ['*']
+      verbs: [get]
+  ---
+  apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  spec:
+    podSelector: {}
+    policyTypes: [Ingress]
+    ingress:
+      - ports: [{port: 8080}]
