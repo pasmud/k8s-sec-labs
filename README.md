@@ -31,6 +31,8 @@ review.yaml:12:9: finding POD_PRIVILEGED [doc 1 $.spec.containers[0].securityCon
 
 Diagnostics go to stdout in argument order, then document, line, column, code, and field path order. Lines, columns, and document numbers start at 1; list indexes start at 0. Positions point to a field key or list item; for an absent field, the position points to its nearest existing ancestor and the diagnostic still names the missing field. Empty stream documents are skipped without renumbering. A file containing only empty documents is an error. Invalid YAML discards results for that file; a shape or support error in a well-formed document does not prevent review of later documents.
 
+Use `python3 -m k8s_sec_labs --format json workload.yaml policy.yaml` for a single JSON array of diagnostics on stdout (`[]` for a clean scan). Each entry has `file` (the argument as passed), `document`, `line`, `column`, `path`, `level` (`finding` or `error`), `code`, and `message`. The `path` is an array of field names and numeric indexes; `[]` means the document root or a file-level error. Exit statuses and ordering are the same as in text mode, which remains the default. Invalid CLI arguments still print usage to stderr rather than emitting JSON.
+
 ## Scope and limits
 
 | API version | Reviewed kinds |

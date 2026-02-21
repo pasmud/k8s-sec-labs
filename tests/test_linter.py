@@ -269,6 +269,38 @@ class CLITests(unittest.TestCase):
                 os.mkfifo(fifo)
                 self.assertEqual(self.run_cli(fifo).returncode, 2)
 
+    def test_json_reports_ordered_findings_and_errors_with_locations(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            path = (Path(directory) / "review with spaces.yaml").relative_to(ROOT)
+            (ROOT / path).write_text(yaml.safe_load(RISKY.read_text(encoding="utf-8")), encoding="utf-8")
+            missing = path.with_name("absent.yaml")
+            findings = self.run_cli("--format", "json", path)
+            mixed = self.run_cli("--format", "json", missing, path)
+        self.assertEqual((findings.returncode, findings.stderr), (1, ""))
+        self.assertEqual((mixed.returncode, mixed.stderr), (2, ""))
+        records = json.loads(findings.stdout)
+        self.assertEqual([r["code"] for r in records], [
+            "POD_PRIVILEGED", "RBAC_SECRET_READ", "RBAC_WILDCARD", "NET_ANY_PEER",
+        ])
+        self.assertEqual(records[0], {
+            "file": str(path), "document": 1, "line": 12, "column": 9,
+            "path": ["spec", "containers", 0, "securityContext", "privileged"],
+            "level": "finding", "code": "POD_PRIVILEGED", "message": "Do not run privileged containers.",
+        })
+        self.assertEqual((records[-1]["document"], records[-1]["line"], records[-1]["column"], records[-1]["path"]),
+                         (3, 31, 7, ["spec", "ingress", 0, "from"]))
+        self.assertEqual(json.loads(mixed.stdout), [{
+            "file": str(missing), "document": 1, "line": 1, "column": 1, "path": [],
+            "level": "error", "code": "INPUT_FILE", "message": "Expected a readable regular file.",
+        }, *records])
+
+    def test_json_clean_scan_and_argument_errors(self):
+        clean = self.run_cli("--format", "json", REFERENCE)
+        self.assertEqual((clean.returncode, clean.stdout, clean.stderr), (0, "[]\n", ""))
+        invalid = self.run_cli("--format", "json")
+        self.assertEqual((invalid.returncode, invalid.stdout), (2, ""))
+        self.assertIn("usage:", invalid.stderr)
+
     def test_help_and_missing_arguments(self):
         self.assertEqual(self.run_cli("--help").returncode, 0)
         run = self.run_cli()

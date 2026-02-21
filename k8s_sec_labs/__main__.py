@@ -1,6 +1,7 @@
 """Command line interface for the offline manifest linter."""
 
 import argparse
+import json
 from pathlib import Path
 
 from .checks import scan
@@ -29,13 +30,29 @@ def scan_file(path: Path) -> list[Diagnostic]:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Review rendered Kubernetes YAML files offline.")
+    parser.add_argument("--format", choices=("text", "json"), default="text", help="diagnostic format")
     parser.add_argument("files", metavar="FILE", nargs="+", help="local UTF-8 manifest file")
     args = parser.parse_args(argv)
+    records = []
     status = 0
     for filename in args.files:
         for diagnostic in scan_file(Path(filename)):
-            print(diagnostic.render(filename))
+            if args.format == "json":
+                records.append({
+                    "file": filename,
+                    "document": diagnostic.document,
+                    "line": diagnostic.line,
+                    "column": diagnostic.column,
+                    "path": diagnostic.path,
+                    "level": "error" if diagnostic.error else "finding",
+                    "code": diagnostic.code,
+                    "message": diagnostic.message,
+                })
+            else:
+                print(diagnostic.render(filename))
             status = max(status, 2 if diagnostic.error else 1)
+    if args.format == "json":
+        print(json.dumps(records))
     return status
 
 
