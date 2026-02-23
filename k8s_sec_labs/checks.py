@@ -13,6 +13,10 @@ WORKLOADS = {
 }
 RBAC_VERSION = "rbac.authorization.k8s.io/v1"
 READ_VERBS = {"get", "list", "watch", "*"}
+RESTRICTED_VOLUME_SOURCES = {
+    "configMap", "csi", "downwardAPI", "emptyDir", "ephemeral",
+    "persistentVolumeClaim", "projected", "secret",
+}
 
 
 class Review:
@@ -108,8 +112,14 @@ class Review:
                 self.emit("POD_HOST_NAMESPACE", (*path, key), "Do not share the host namespace.")
         volumes = self.field(spec, "volumes", path, list)
         for volume_path, volume in self.mappings(volumes, (*path, "volumes")):
-            if "hostPath" in volume:
-                self.emit("POD_HOST_PATH", (*volume_path, "hostPath"), "Do not mount hostPath volumes.")
+            for source in volume.keys() - {"name"} - RESTRICTED_VOLUME_SOURCES:
+                if source == "hostPath":
+                    self.emit("POD_HOST_PATH", (*volume_path, source), "Do not mount hostPath volumes.")
+                else:
+                    self.emit(
+                        "POD_VOLUME_SOURCE", (*volume_path, source),
+                        "Use a volume source on the Restricted allowlist.",
+                    )
 
         pod_context = self.field(spec, "securityContext", path, dict)
         pod_context_path = (*path, "securityContext")

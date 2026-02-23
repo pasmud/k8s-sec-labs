@@ -152,6 +152,33 @@ class WorkloadTests(unittest.TestCase):
         ])
         self.assertTrue(all(r.code == "INPUT_SHAPE" and r.error for r in results))
 
+    def test_restricted_volume_sources(self):
+        results = scan(POD + """spec:
+  volumes:
+    - name: scratch
+      emptyDir: {}
+    - name: settings
+      configMap: {name: fixture}
+    - name: inputs
+      projected: {sources: [{downwardAPI: {items: []}}]}
+    - name: data
+      persistentVolumeClaim: {claimName: fixture}
+    - name: legacy
+      nfs: {server: storage.example, path: /fixture}
+    - name: local
+      hostPath: {path: /fixture}
+    - name: block
+      iscsi: {targetPortal: '192.0.2.1:3260', iqn: iqn.2000-01.example:fixture, lun: 0}
+  securityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+  containers:
+    - securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+""")
+        self.assertEqual([(r.code, r.path, r.line, r.column, r.error) for r in results], [
+            ("POD_VOLUME_SOURCE", ("spec", "volumes", 4, "nfs"), 14, 7, False),
+            ("POD_HOST_PATH", ("spec", "volumes", 5, "hostPath"), 16, 7, False),
+            ("POD_VOLUME_SOURCE", ("spec", "volumes", 6, "iscsi"), 18, 7, False),
+        ])
+
     def test_per_container_security_settings_can_replace_absent_pod_settings(self):
         text = POD + """spec:
   containers:
