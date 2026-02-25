@@ -223,10 +223,42 @@ subjects:
         base = "apiVersion: networking.k8s.io/v1\nkind: NetworkPolicy\nspec:\n  podSelector: {}\n"
         self.assertEqual(codes(base + "  policyTypes: [Ingress, Egress]\n  ingress: []\n"), [])
         self.assertEqual(codes(base + "  ingress: [{}]\n  egress: [{to: []}]\n"), [
-            "NET_IMPLICIT_TYPES", "NET_ANY_PEER", "NET_ANY_PEER",
+            "NET_IMPLICIT_TYPES", "NET_ANY_PEER", "NET_ANY_PORT", "NET_ANY_PORT", "NET_ANY_PEER",
         ])
-        self.assertEqual(codes(base + "  policyTypes: [Egress]\n  ingress: [{from: [false]}]\n"), [
+        self.assertEqual(codes(base + "  policyTypes: [Egress]\n  ingress: [{from: [false], ports: [{port: 80}]}]\n"), [
             "INPUT_SHAPE", "INPUT_SHAPE",
+        ])
+
+    def test_network_policy_unrestricted_ports_are_independent_of_peer_scope(self):
+        results = scan("""apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from: [{podSelector: {matchLabels: {app: fixture}}}]
+    - from: [{podSelector: {}}]
+      ports: []
+  egress:
+    - to: [{ipBlock: {cidr: 192.0.2.1/32}}]
+      ports:
+        - {port: 53, protocol: UDP}
+        - {protocol: TCP}
+        - {port: null, protocol: UDP}
+        - {endPort: 9000}
+        - {port: 8000, endPort: 9000}
+        - {port: metrics}
+        - false
+""")
+        ingress = ("spec", "ingress")
+        egress_ports = ("spec", "egress", 0, "ports")
+        self.assertEqual([(r.code, r.path, r.error) for r in results], [
+            ("NET_ANY_PORT", (*ingress, 0, "ports"), False),
+            ("NET_ANY_PORT", (*ingress, 1, "ports"), False),
+            ("NET_ANY_PORT", (*egress_ports, 1, "port"), False),
+            ("NET_ANY_PORT", (*egress_ports, 2, "port"), False),
+            ("INPUT_SHAPE", (*egress_ports, 3, "endPort"), True),
+            ("INPUT_SHAPE", (*egress_ports, 6), True),
         ])
 
     def test_empty_namespace_selector_broadens_pod_selector(self):
@@ -242,6 +274,7 @@ spec:
           podSelector: {matchLabels: {app: allowed}}
         - ipBlock: {cidr: 192.0.2.0/24}
           podSelector: {}
+      ports: [{port: 8080}]
 """
         results = scan(text)
         self.assertEqual([r.code for r in results], ["NET_ALL_NAMESPACES", "INPUT_SHAPE"])

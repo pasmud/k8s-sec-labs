@@ -266,6 +266,22 @@ class Review:
                             "NET_ALL_NAMESPACES", (*peer_path, "namespaceSelector"),
                             "An empty namespaceSelector matches every namespace.",
                         )
+                self.network_ports(rule, rule_path)
+
+    def network_ports(self, rule, path):
+        ports = self.field(rule, "ports", path, list)
+        path = (*path, "ports")
+        if "ports" not in rule or ports == []:
+            self.emit("NET_ANY_PORT", path, "This rule does not restrict destination ports.")
+        for port_path, entry in self.mappings(ports, path):
+            if entry.get("port") is None:
+                if entry.get("endPort") is not None:
+                    self.invalid((*port_path, "endPort"), "endPort requires a starting port.")
+                else:
+                    self.emit(
+                        "NET_ANY_PORT", (*port_path, "port"),
+                        "This entry permits every destination port for its protocol.",
+                    )
 
 
 def scan(text: str) -> list[Diagnostic]:
