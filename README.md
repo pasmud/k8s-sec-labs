@@ -37,13 +37,13 @@ Use `python3 -m k8s_sec_labs --format json workload.yaml policy.yaml` for a sing
 
 | API version | Reviewed kinds |
 | --- | --- |
-| `v1` | `Pod` |
+| `v1` | `Pod`, `PodTemplate` |
 | `apps/v1` | `Deployment`, `DaemonSet`, `StatefulSet`, `ReplicaSet` |
 | `batch/v1` | `Job`, `CronJob` |
 | `rbac.authorization.k8s.io/v1` | `Role`, `ClusterRole`, `RoleBinding`, `ClusterRoleBinding` |
 | `networking.k8s.io/v1` | `NetworkPolicy` |
 
-Use rendered objects with canonical Kubernetes field names. Other API version/kind pairs (including `List`, custom resources, and unrelated resources in mixed bundles) and explicitly non-Linux Pod specs report errors. Omitted Pod OS is reviewed as Linux; node placement is not inferred. Inputs are bounded to 1 MiB per file, 100 document slots, and 64 nested YAML nodes. Duplicate keys, non-string mapping keys, merge keys, anchors, aliases, explicit tags, and non-finite numeric values are rejected. Quote strings that resemble YAML 1.1 booleans or numbers, including mapping keys such as `on`.
+Use rendered objects with canonical Kubernetes field names. For `PodTemplate`, workload checks review the stored `.template.spec`; they do not infer how the template will be used. Other API version/kind pairs (including `List`, custom resources, and unrelated resources in mixed bundles) and explicitly non-Linux Pod specs report errors. Omitted Pod OS is reviewed as Linux; node placement is not inferred. Inputs are bounded to 1 MiB per file, 100 document slots, and 64 nested YAML nodes. Duplicate keys, non-string mapping keys, merge keys, anchors, aliases, explicit tags, and non-finite numeric values are rejected. Quote strings that resemble YAML 1.1 booleans or numbers, including mapping keys such as `on`.
 
 This is a selective manifest review, not Kubernetes schema validation, Pod Security Admission, an effective-permission calculator, or a connectivity test. Unscanned fields, admission mutations, controller behavior, installed profiles, and live cluster state can all change the outcome. See the [defensive learning notes](docs/defensive-review.md) for the implemented controls and concrete review guidance. The [risky fixture](tests/fixtures/risky.txt) is a YAML scalar containing synthetic text, so the checked-in file is not a Kubernetes object.
 

@@ -100,6 +100,33 @@ class WorkloadTests(unittest.TestCase):
                     ("INPUT_SHAPE", (*path, "containers")),
                 ])
 
+    def test_standalone_pod_template_checks_embedded_spec(self):
+        header = "apiVersion: v1\nkind: PodTemplate\nmetadata: {name: fixture}\n"
+        template = """template:
+  spec:
+    securityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+    containers:
+      - name: fixture
+        image: registry.k8s.io/pause:3.10
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities: {drop: [ALL]}
+"""
+        self.assertEqual(scan(header + template), [])
+        result, = scan(header + template.replace("drop: [ALL]", "drop: []"))
+        self.assertEqual((result.code, result.path), (
+            "POD_CAP_DROP", ("template", "spec", "containers", 0, "securityContext", "capabilities", "drop"),
+        ))
+
+    def test_pod_template_requires_top_level_template_mapping(self):
+        header = "apiVersion: v1\nkind: PodTemplate\n"
+        for body, path in (("spec: {template: {spec: {}}}\n", ("template",)),
+                           ("template: []\n", ("template",)),
+                           ("template: {}\n", ("template", "spec"))):
+            with self.subTest(body=body):
+                result, = scan(header + body)
+                self.assertEqual((result.code, result.path, result.error), ("INPUT_SHAPE", path, True))
+
     def test_all_container_types_and_pod_defaults(self):
         results = scan(POD + """spec:
   securityContext:

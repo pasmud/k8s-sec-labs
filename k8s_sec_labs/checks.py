@@ -4,6 +4,7 @@ from .source import Diagnostic, Document, Path, load
 
 WORKLOADS = {
     ("v1", "Pod"): ("spec",),
+    ("v1", "PodTemplate"): ("template", "spec"),
     **{
         ("apps/v1", kind): ("spec", "template", "spec")
         for kind in ("Deployment", "DaemonSet", "StatefulSet", "ReplicaSet")
