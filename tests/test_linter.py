@@ -54,6 +54,16 @@ class SourceTests(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(codes(text), ["INPUT_YAML"])
 
+    def test_yaml_version_directive_uses_supported_scalar_rules(self):
+        text = POD + "spec: {hostPID: yes, containers: []}\n"
+        self.assertEqual(codes("%YAML 1.1\n---\n" + text), ["POD_HOST_NAMESPACE", "INPUT_SHAPE"])
+        for version in ("1.0", "1.2"):
+            with self.subTest(version=version):
+                result, = scan(text + f"...\n%YAML {version}\n---\n" + text)
+                self.assertEqual((result.code, result.document, result.line, result.column, result.error),
+                                 ("INPUT_YAML", 2, 5, 1, True))
+                self.assertIn("%YAML 1.1", result.message)
+
     def test_empty_and_non_mapping_documents(self):
         for text in ("", "# comment\n", "---\n..."):
             with self.subTest(text=text):

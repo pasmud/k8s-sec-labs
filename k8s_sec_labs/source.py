@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from math import isfinite
+from typing import ClassVar
 
 import yaml
 from yaml.error import MarkedYAMLError
@@ -64,10 +65,16 @@ def reject(message, mark):
 class ManifestLoader(yaml.SafeLoader):
     depth = 0
     # Keep unquoted date-like values as strings instead of Python date objects.
-    yaml_implicit_resolvers = {
+    yaml_implicit_resolvers: ClassVar = {
         char: [(tag, regex) for tag, regex in rules if tag != "tag:yaml.org,2002:timestamp"]
         for char, rules in yaml.SafeLoader.yaml_implicit_resolvers.items()
     }
+
+    def compose_document(self):
+        start = self.peek_event()
+        if start.version not in (None, (1, 1)):
+            reject("Only the %YAML 1.1 version directive is supported.", start.start_mark)
+        return super().compose_document()
 
     def compose_node(self, parent, index):
         event = self.peek_event()
